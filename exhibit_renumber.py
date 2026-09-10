@@ -1264,6 +1264,12 @@ def _strip_exhibit_prefix(fname_no_ext):
         clean = fname_no_ext[m2.end():].strip()
         return clean, old_label
 
+    # 번호 없는 접두사 (갑 제호증, 을 제호증, 소갑 제호증, 증 제호증)
+    m_nonum = re.match(r"^(?:소갑|갑|을|증)\s*제호증\s*", fname_no_ext)
+    if m_nonum:
+        clean = fname_no_ext[m_nonum.end():].strip()
+        return clean, None
+
     return fname_no_ext.strip(), None
 
 
