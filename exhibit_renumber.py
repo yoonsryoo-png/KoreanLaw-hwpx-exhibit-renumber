@@ -456,9 +456,17 @@ def clone_para_with_text(template_para, new_text):
 # ═══════════════════════════════════════════════════════════════
 # 문서 유형 자동 판별
 # ═══════════════════════════════════════════════════════════════
+def _is_cite_context(text, m):
+    """증거 패턴이 인용 라인(- 로 시작)에 있는지 판별."""
+    before = text[:m.start()].strip()
+    before_clean = re.sub(r'^[-·•\-\s\d.]+$', '', before)
+    return len(before_clean) == 0
+
+
 def detect_mode(paragraphs):
     """
     문서 전체를 분석하여 유형 판별.
+    인용 라인(- 로 시작)에 있는 증거만 카운트하여 문서 유형 결정.
     반환: "exhibit_a" | "exhibit_b" | "exhibit_b_nonum" | "exhibit_sa" | "exhibit_sa_nonum" | "exhibit_e" | "exhibit_e_nonum" | "reference"
     """
     a_count = 0
@@ -473,21 +481,29 @@ def detect_mode(paragraphs):
 
     for para_el in paragraphs:
         text = get_para_texts(para_el)
-        a_count += len(EXHIBIT_A_RE.findall(text))
-        b_count += len(EXHIBIT_B_RE.findall(text))
-        sa_count += len(EXHIBIT_SA_RE.findall(text))
-        e_count += len(EXHIBIT_E_RE.findall(text))
-        ref_count += len(REFERENCE_RE.findall(text))
-        # 을 제호증 (번호 없음) — 을 제N호증으로 이미 매칭된 부분 제외
+        # 인용 라인에 있는 증거만 카운트
+        for m in EXHIBIT_A_RE.finditer(text):
+            if _is_cite_context(text, m):
+                a_count += 1
+        for m in EXHIBIT_B_RE.finditer(text):
+            if _is_cite_context(text, m):
+                b_count += 1
+        for m in EXHIBIT_SA_RE.finditer(text):
+            if _is_cite_context(text, m):
+                sa_count += 1
+        for m in EXHIBIT_E_RE.finditer(text):
+            if _is_cite_context(text, m):
+                e_count += 1
+        for m in REFERENCE_RE.finditer(text):
+            if _is_cite_context(text, m):
+                ref_count += 1
+        # 번호 없는 패턴은 인용 라인에서만 등장하므로 그대로 카운트
         remaining = EXHIBIT_B_RE.sub("", text)
         b_nonum_count += len(EXHIBIT_B_NONUM_RE.findall(remaining))
-        # 소갑 제호증 (번호 없음)
         sa_remaining = EXHIBIT_SA_RE.sub("", text)
         sa_nonum_count += len(EXHIBIT_SA_NONUM_RE.findall(sa_remaining))
-        # 증 제호증 (번호 없음)
         e_remaining = EXHIBIT_E_RE.sub("", text)
         e_nonum_count += len(EXHIBIT_E_NONUM_RE.findall(e_remaining))
-        # 참고자료 (번호 없음) — 참고자료 N으로 이미 매칭된 부분 제외
         ref_remaining = REFERENCE_RE.sub("", text)
         cleaned = re.sub(r"\s", "", text.strip())
         if cleaned not in SECTION_KEYWORDS:
